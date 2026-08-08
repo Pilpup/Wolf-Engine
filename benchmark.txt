@@ -1,22 +1,22 @@
-# started on Sat Aug  8 23:34:35 2026
+# started on Sun Aug  9 00:36:31 2026
 
 
  Performance counter stats for './game':
 
                  0      context-switches:u               #      0.0 cs/sec  cs_per_second     
                  0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
-             8,206      page-faults:u                    #    117.0 faults/sec  page_faults_per_second
-         70,160.14 msec task-clock:u                     #      2.0 CPUs  CPUs_utilized       
-    4,63,58,10,109      L1-dcache-load-misses:u          #      2.5 %  l1d_miss_rate            (43.28%)
-      17,09,55,209      branch-misses:u                  #      0.2 %  branch_miss_rate         (43.29%)
-   87,51,07,86,033      branches:u                       #   1247.3 M/sec  branch_frequency     (57.22%)
- 2,27,71,92,35,504      cpu-cycles:u                     #      3.2 GHz  cycles_frequency       (57.09%)
- 7,73,71,81,50,090      instructions:u                   #      3.4 instructions  insn_per_cycle  (56.73%)
-    5,26,97,97,082      stalled-cycles-frontend:u        #     0.02 frontend_cycles_idle        (56.72%)
+             8,247      page-faults:u                    #     80.7 faults/sec  page_faults_per_second
+       1,02,192.52 msec task-clock:u                     #      2.1 CPUs  CPUs_utilized       
+    6,75,03,09,497      L1-dcache-load-misses:u          #      2.4 %  l1d_miss_rate            (42.44%)
+      28,69,48,304      branch-misses:u                  #      0.2 %  branch_miss_rate         (42.62%)
+ 1,26,77,51,19,537      branches:u                       #   1240.6 M/sec  branch_frequency     (57.15%)
+ 3,25,19,70,27,170      cpu-cycles:u                     #      3.2 GHz  cycles_frequency       (57.27%)
+11,11,46,86,73,876      instructions:u                   #      3.4 instructions  insn_per_cycle  (57.56%)
+    8,38,52,19,528      stalled-cycles-frontend:u        #     0.03 frontend_cycles_idle        (57.38%)
 
-      34.725903173 seconds time elapsed
+      49.512545261 seconds time elapsed
 
-      59.800328000 seconds user
-       7.625124000 seconds sys
+      86.230632000 seconds user
+      11.738103000 seconds sys
 
 

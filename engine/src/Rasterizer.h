@@ -25,6 +25,7 @@ private:
 
     uint16_t* pixels;
     uint16_t* display = nullptr;
+    uint32_t* shadowBuffer = nullptr;
 
     std::vector<Sprite*> renderQueue;
 

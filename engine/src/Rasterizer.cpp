@@ -61,6 +61,7 @@ bool Rasterizer::Initialize(int scrWidth, int scrHeight){
 
     pixels = new uint16_t[width * height];
     display = new uint16_t[width * height];
+    shadowBuffer = new uint32_t[(width * height) / 32 + 1];
     return true;
 }
 
@@ -72,6 +73,10 @@ void Rasterizer::CleanUp(){
     if(display != nullptr){
         delete[] display;
         display = nullptr;
+    }
+    if(shadowBuffer != nullptr){
+        delete[] shadowBuffer;
+        shadowBuffer = nullptr;
     }
     return;
 }
@@ -376,50 +381,44 @@ void Rasterizer::DrawVertSprite(int x, int startY, int endY, SpriteColumn* colum
 }
 
 void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY){
-    int spriteHeight = endY - startY;
+    int spriteHeight = endY - startY; 
     if(spriteHeight <= 0) return;
 
-    int32_t invStep = (spriteHeight << 16) / frameHeight;
+    int32_t invStep = (spriteHeight << 16) / frameHeight; 
+
+    int32_t fixedShearX = (int32_t)(shearX * 65536.0f);
+    int32_t fixedScaleY = (int32_t)(scaleY * 65536.0f);
 
     for(int i = 0; i < col->numRuns; i++){
         SpriteRun& run = col->runs[i];
-
+    
         int screenY = startY + ((run.start * invStep) >> 16);
         int runHeight = ((run.size * invStep) >> 16);
         int screenEndY = screenY + runHeight;
 
-        int lastShadowX = -1;
-        int lastShadowY = -1;
+        int h_start = drawEndY - screenY;
+        if(h_start < 0) h_start = 0;
+
+        int32_t shadowX_FP = (x << 16) + h_start * fixedShearX;
+        int32_t shadowY_FP = (drawEndY << 16) - h_start * fixedScaleY;
 
         for(int y = screenY; y < screenEndY; y++){
-            int h = drawEndY - y;
-            if(h < 0) h = 0;
+            int shadowX = shadowX_FP >> 16;
+            int shadowY = shadowY_FP >> 16;
 
-            int shadowX = x + (int)(h * shearX);
-            int shadowY = drawEndY - (int)(h * scaleY);
-
-            if(shadowX == lastShadowX && shadowY == lastShadowY) continue;
-
-            //fix: horizontal lines when sun andle is low, scaleY become 1.0f
-            if(lastShadowY != -1 && std::abs(shadowY - lastShadowY) > 1){
-                int stepY = (shadowY > lastShadowY) ? 1 : -1;
-                int fillY = lastShadowY + stepY;
-                while(fillY != shadowY){
-                    if(shadowX >= 0 && shadowX < width && fillY >= 0 && fillY < height){
-                        int pixIndex = shadowX * height + fillY;
-                        pixels[pixIndex] = ShadePixel(pixels[pixIndex], 200);
-                    }
-                    fillY += stepY;
-                }
-            }    
-
-            lastShadowX = shadowX;
-            lastShadowY = shadowY;
-            
             if(shadowX >= 0 && shadowX < width && shadowY >= 0 && shadowY < height){
                 int pixIndex = shadowX * height + shadowY;
-                pixels[pixIndex] = ShadePixel(pixels[pixIndex], 200);
+                int intIndex = pixIndex >> 5; 
+                uint32_t bitMask = 1U << (pixIndex & 31);
+                
+                if(!(shadowBuffer[intIndex] & bitMask)){
+                    pixels[pixIndex] = ShadePixel(pixels[pixIndex], 170); 
+                    shadowBuffer[intIndex] |= bitMask;
+                }
             }
+
+            shadowX_FP -= fixedShearX;
+            shadowY_FP += fixedScaleY;
         }
     }
 }
@@ -442,11 +441,11 @@ void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, V
     float scaleY = localY * 0.4f;
     float shearX = localX * 1.5f;
 
-    int drawStartX = std::max(0, proj.drawStartX);
-    int drawEndX = std::min(width, proj.drawEndX);
+    int drawStartX = proj.drawStartX;
+    int drawEndX = proj.drawEndX;
 
     int32_t texX_step = (frame->width << 16) / spriteWidth;
-    int32_t texX_FP = (drawStartX - proj.drawStartX) * texX_step;
+    int32_t texX_FP = 0; 
 
     int fog = CalculateFog(proj.distance);
 
@@ -454,8 +453,11 @@ void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, V
         int texX = texX_FP >> 16;
         texX_FP += texX_step;
 
-        // depth bugger check
-        if(proj.distance >= ray->GetColBuffer()[x].distance) continue;
+        if(texX < 0 || texX >= frame->width) continue;
+
+        if(x >= 0 && x < width){
+            if(proj.distance >= ray->GetColBuffer()[x].distance) continue;
+        }
 
         SpriteColumn* col = &frame->columns[texX];
         if(col->numRuns == 0) continue;
@@ -526,6 +528,10 @@ void Rasterizer::SortDrawList(Camera* cam){
 
 void Rasterizer::DrawSprites(Camera* cam, Raycaster* raycaster, Vector2 sunDir, bool drawShadow){
     SortDrawList(cam);
+
+    if(drawShadow){
+        std::memset(shadowBuffer, 0, ((width * height) / 32 + 1) * sizeof(uint32_t));
+    }
 
     for(int i = 0; i < visibleSprites; i++){
         if(drawShadow){
