@@ -12,12 +12,13 @@
 #include <cstdint>
 #include <cmath>
 
-const float MAX_VIEW_DISTANCE = 12.0f;
-const float MAX_VIEW_DISTANCE_SQR = 144.0f;
-
 const int aoThreshold = 16;
 const int minShadowBrightness = 128;
 const int shadowRange = 256 - minShadowBrightness;
+
+const int MAX_VISIBLE_SPRITES = 4096;
+static SpriteDrawInfo drawList[MAX_VISIBLE_SPRITES];
+static SpriteDrawInfo tempSwapList[MAX_VISIBLE_SPRITES];
 
 inline uint16_t ShadePixel(uint16_t color, int fog){
     if(fog >= 256) return color;
@@ -34,20 +35,18 @@ inline uint16_t ShadePixel(uint16_t color, int fog){
     return (r << 11) | (g << 5) | b;
 }
 
-inline int CalculateFog(float distance){
-    const float fogMin = 6.0f;
-    const float fogMax = 12.0f;
-    const float fogScale = 256.0f / (fogMax - fogMin);
+int Rasterizer::CalculateFog(float distance, Camera* cam){
+    if(!cam->distanceFogEnabled) return 256;
+
+    float fogMaxDist = cam->maxViewDist;
+    float fogMinDist = cam->maxViewDist * 0.7f;
     
-    if(distance <= fogMin) return 256;
-    if(distance >= fogMax) return 0;
+    if(distance <= fogMinDist) return 256;
+    if(distance >= fogMaxDist) return 0;
 
-    return 256 - (int)((distance - fogMin) * fogScale); 
+    const float fogScale = 256.0f / (fogMaxDist - fogMinDist);
+    return 256 - (int)((distance - fogMinDist) * fogScale); 
 }
-
-const int MAX_VISIBLE_SPRITES = 4096;
-static SpriteDrawInfo drawList[MAX_VISIBLE_SPRITES];
-static SpriteDrawInfo tempSwapList[MAX_VISIBLE_SPRITES];
 
 Rasterizer::Rasterizer() : width(0), height(0), pixels(nullptr) {}
 
@@ -85,6 +84,7 @@ void Rasterizer::Clear(uint16_t color){
     int size = width * height;
     std::fill_n(pixels, size, color);
 }
+
 
 void Rasterizer::TransposeTo(uint16_t* dest, int pitch){
     int destWidth = pitch / 2;
@@ -186,13 +186,13 @@ void Rasterizer::DrawWalls(ColumnGeometry* colBuffer, AssetMgr* assets, Palette*
     for(int x = 0; x < width; x++){
 
         ColumnGeometry& column = colBuffer[x];
-        if(column.distance >= MAX_VIEW_DISTANCE){
+        if(column.distance >= cam->maxViewDist){
             DrawVLine(x, column.drawStart, column.drawEnd, 0x0000);
             continue;
         }
 
         // fog based on distance
-        int depthFog = CalculateFog(column.distance);
+        int depthFog = CalculateFog(column.distance, cam);
 
         // fog combined with directional lighting
         int finalFog = (depthFog * column.lightLevel) >> 8;
@@ -231,7 +231,7 @@ void Rasterizer::DrawHorizon(ColumnGeometry* colBuffer, uint16_t ceil, uint16_t 
     } 
 }
 
-void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* rowBuffer, Texture* floorTex, Texture* ceilTex, Camera* cam){
+void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* rowBuffer, Texture* floorTex, Texture* ceilTex, Camera* cam, bool isSky){
     if(!floorTex || !ceilTex) return;
     int horizon = (height >> 1) + cam->pitch;
 
@@ -244,7 +244,41 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
 
     int rowFog[height];
     for(int y = 0; y < height; y++){
-        rowFog[y] = CalculateFog(rowBuffer[y].distance);
+        rowFog[y] = CalculateFog(rowBuffer[y].distance, cam);
+    }
+
+    int skyTexX[width];
+    int skyTexOffset[width];
+    int skyTexY_array[height];
+    int skyHeight = 0;
+    int skyWidth = 0;
+
+    if(isSky){
+        skyWidth = ceilTex->width;
+        skyHeight = ceilTex->height;
+        
+        for(int y = 0; y < height; y++){
+            int texY = ((y - cam->pitch - (height >> 1)) * skyHeight) / (height >> 1) + skyHeight - 1;
+            if(texY < 0) texY = 0;
+            if(texY >= skyHeight) texY = skyHeight - 1;
+            skyTexY_array[y] = texY;
+        }
+
+        for(int x = 0; x < width; x++){
+            float cameraX = 2.0f * x / (float)width - 1.0f;
+            
+            float rayDirX = cam->dir.x + cam->plane.x * cameraX;
+            float rayDirY = cam->dir.y + cam->plane.y * cameraX;
+            
+            float angle = std::atan2(rayDirY, rayDirX);
+            if(angle < 0.0f) angle += 6.2831853f;
+
+            int texX = (int)((angle / 6.2831853f) * skyWidth);
+            texX = (skyWidth - texX) % skyWidth;
+            if(texX < 0) texX += skyWidth;
+            skyTexX[x] = texX;
+            skyTexOffset[x] = texX * skyHeight;
+        }
     }
 
     const int BLOCK = 32;
@@ -261,7 +295,7 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
                     if(y == horizon) continue;
                    
                     if(y >= horizon){
-                        if(rowBuffer[y].distance >= MAX_VIEW_DISTANCE){
+                        if(rowBuffer[y].distance >= cam->maxViewDist){
                             if(y >= colBuffer[x].drawEnd) dst[pixIndex + y] = 0x0000;
                         }
                         else{
@@ -282,25 +316,30 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
                             }
                         }
                     }
-                    else{
-                        if(rowBuffer[y].distance >= MAX_VIEW_DISTANCE){
-                            if(y < colBuffer[x].drawStart) dst[pixIndex + y] = 0x0000;
-                        }
-                        else{
-                            if(y < colBuffer[x].drawStart){
-                                int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
-                                int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
-
-                                uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
-                                
-                                int currFog = rowFog[y];
-                                int disFromWallTop = (colBuffer[x].drawStart - 1) - y;
-                                if(disFromWallTop < aoThreshold){
-                                    int multiplier = minShadowBrightness + ((shadowRange * disFromWallTop) >> 4);
-                                    currFog = (currFog * multiplier) >> 8;
+                    else{ //draw sky/ ceiling
+                        if(y < colBuffer[x].drawStart){
+                            if(isSky){
+                                dst[pixIndex + y] = ceilPx[skyTexOffset[x] + skyTexY_array[y]];
+                            }
+                            else{
+                                if(rowBuffer[y].distance >= cam->maxViewDist){
+                                    if(y < colBuffer[x].drawStart) dst[pixIndex + y] = 0x0000;
                                 }
+                                else{
+                                    int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
+                                    int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
 
-                                dst[pixIndex + y] = ShadePixel(color, currFog);
+                                    uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
+
+                                    int currFog = rowFog[y];
+                                    int disFromWallTop = (colBuffer[x].drawStart - 1) - y;
+                                    if(disFromWallTop < aoThreshold){
+                                        int multiplier = minShadowBrightness + ((shadowRange * disFromWallTop) >> 4);
+                                        currFog = (currFog * multiplier) >> 8;
+                                    }
+
+                                    dst[pixIndex + y] = ShadePixel(color, currFog);
+                                }
                             }
                         }
                     }
@@ -317,7 +356,7 @@ void Rasterizer::DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster){
     raycaster->ProjectSprite(sprite.x, sprite.y, sprite.z, cam, &proj, frame->width, frame->height);
 
     if(proj.distance <= 0.1f) return;
-    if(proj.distance >= MAX_VIEW_DISTANCE) return;
+    if(proj.distance >= cam->maxViewDist) return;
 
     int drawStartX = std::max(0, proj.drawStartX);
     int drawEndX   = std::min(width, proj.drawEndX);
@@ -328,7 +367,7 @@ void Rasterizer::DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster){
     int32_t texX_step = (frame->width << 16) / spriteWidth;
     int32_t texX_FP   = (drawStartX - proj.drawStartX) * texX_step;
         
-    int fog = CalculateFog(proj.distance);
+    int fog = CalculateFog(proj.distance, cam);
     
     for(int x = drawStartX; x < drawEndX; x++){
         int texX = texX_FP >> 16;
@@ -380,7 +419,7 @@ void Rasterizer::DrawVertSprite(int x, int startY, int endY, SpriteColumn* colum
     }
 }
 
-void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY){
+void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer){
     int spriteHeight = endY - startY; 
     if(spriteHeight <= 0) return;
 
@@ -391,7 +430,7 @@ void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, 
 
     for(int i = 0; i < col->numRuns; i++){
         SpriteRun& run = col->runs[i];
-    
+
         int screenY = startY + ((run.start * invStep) >> 16);
         int runHeight = ((run.size * invStep) >> 16);
         int screenEndY = screenY + runHeight;
@@ -403,17 +442,19 @@ void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, 
         int32_t shadowY_FP = (drawEndY << 16) - h_start * fixedScaleY;
 
         for(int y = screenY; y < screenEndY; y++){
-            int shadowX = shadowX_FP >> 16;
-            int shadowY = shadowY_FP >> 16;
+            int cx = shadowX_FP >> 16;
+            int cy = shadowY_FP >> 16;
 
-            if(shadowX >= 0 && shadowX < width && shadowY >= 0 && shadowY < height){
-                int pixIndex = shadowX * height + shadowY;
-                int intIndex = pixIndex >> 5; 
-                uint32_t bitMask = 1U << (pixIndex & 31);
-                
-                if(!(shadowBuffer[intIndex] & bitMask)){
-                    pixels[pixIndex] = ShadePixel(pixels[pixIndex], 170); 
-                    shadowBuffer[intIndex] |= bitMask;
+            if(cx >= 0 && cx < width && cy >= 0 && cy < height){
+                if(cy >= colBuffer[cx].drawEnd){
+                    int pixIndex = cx * height + cy;
+                    int intIndex = pixIndex >> 5; 
+                    uint32_t bitMask = 1U << (pixIndex & 31);
+                    
+                    if(!(shadowBuffer[intIndex] & bitMask)){
+                        pixels[pixIndex] = ShadePixel(pixels[pixIndex], 170); 
+                        shadowBuffer[intIndex] |= bitMask;
+                    }
                 }
             }
 
@@ -447,7 +488,7 @@ void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, V
     int32_t texX_step = (frame->width << 16) / spriteWidth;
     int32_t texX_FP = 0; 
 
-    int fog = CalculateFog(proj.distance);
+    int fog = CalculateFog(proj.distance, cam);
 
     for(int x = drawStartX; x < drawEndX; x++){
         int texX = texX_FP >> 16;
@@ -462,7 +503,7 @@ void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, V
         SpriteColumn* col = &frame->columns[texX];
         if(col->numRuns == 0) continue;
 
-        DrawVertShadow(x, proj.drawStartY, proj.drawEndY, col, frame->height, fog, proj.drawEndY, shearX, scaleY);
+        DrawVertShadow(x, proj.drawStartY, proj.drawEndY, col, frame->height, fog, proj.drawEndY, shearX, scaleY, ray->GetColBuffer());
     }
 }
 
@@ -484,7 +525,7 @@ void Rasterizer::SortDrawList(Camera* cam){
         if(dotUnnormalized <= 0.0f) continue;
 
         float distSqr = spriteVec.Dot(spriteVec);           //just pythagorus
-        if(distSqr >= MAX_VIEW_DISTANCE_SQR) continue;
+        if(distSqr >= cam->maxViewDistSqr) continue;
 
         if(((dotUnnormalized * dotUnnormalized) / distSqr) < thresholdSqr) continue;
 

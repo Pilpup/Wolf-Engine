@@ -33,13 +33,15 @@ private:
     int visibleSprites = 0;
 
 private:
+    int CalculateFog(float distance, Camera* cam);
+
     void SortDrawList(Camera* cam);
     
     void DrawVertSprite(int x, int startY, int endY, SpriteColumn* column, int frameHeight, int fog);
     
     void DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster);
     
-    void DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY);
+    void DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer);
 
     void DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, Vector2 sunDir);
 
@@ -62,7 +64,7 @@ public:
     void DrawFPS(int fps, int x, int y, uint16_t color);
 
     void DrawChar(int x, int y, char c, uint16_t color);
-    
+   
     void DrawStr(int x, int y, const std::string& s, uint16_t color);
     
     inline void DrawVLine(int x, int startY, int endY, uint16_t color){
@@ -80,9 +82,10 @@ public:
 
     void DrawHorizon(ColumnGeometry* colBuffer, uint16_t ceil, uint16_t floor);
 
-    void DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* rowBuffer, Texture* floor, Texture* ceil, Camera* cam);
+    void DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* rowBuffer, Texture* floor, Texture* ceil, Camera* cam, bool drawCeil);
 
     void DrawSprites(Camera* cam, Raycaster* raycaster, Vector2 sunDir, bool drawShadow);
+
     
     int GetWidth() const {return width;}
     int GetHeight() const {return height;}

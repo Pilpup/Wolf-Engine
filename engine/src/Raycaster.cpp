@@ -6,8 +6,6 @@
 #include <complex>
 #include <cstdint>
 
-const float MAX_VIEW_DISTANCE = 13.0f;
-
 Raycaster::Raycaster(int w, int h) : scrWidth(w), scrHeight(h) {
     colBuffer = new ColumnGeometry[scrWidth];
     rowBuffer = new RowGeometry[scrHeight];
@@ -83,14 +81,14 @@ void Raycaster::CalculateColumnGeometry(Camera* camera, Map* map, Vector2 sunDir
             tile = mapData[mapIndex];
             if(tile > 0) break;
 
-            if(sideDist.x > MAX_VIEW_DISTANCE && sideDist.y > MAX_VIEW_DISTANCE) break;
+            if(sideDist.x > camera->maxViewDist && sideDist.y > camera->maxViewDist) break;
         }
 
         // perpendicular distance to the wall, 
-        // since we did not use pythagorus theorem to find the distance, there is minimal fish eye effect
+        // since I did not use pythagorus theorem to find the distance, there is minimal fish eye effect
         float wallDistance;
         if(tile == 0){
-            wallDistance = MAX_VIEW_DISTANCE + 10.0f;
+            wallDistance = camera->maxViewDist + 10.0f;
         }
         else{
             wallDistance = (side == 0) ? (sideDist.x - deltaDist.x) : (sideDist.y - deltaDist.y);
@@ -166,7 +164,7 @@ void Raycaster::CalculateRowGeometry(Camera* camera){
         float camHeight = (p > 0) ? ((0.5f * scrHeight) + camera->z) : ((0.5f * scrHeight) - camera->z);
         float rowDistance = camHeight / (float)std::abs(p);
 
-        if(rowDistance >= MAX_VIEW_DISTANCE){
+        if(rowDistance >= camera->maxViewDist){
             rowBuffer[y].distance = rowDistance;
             continue;
         }
