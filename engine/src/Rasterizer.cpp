@@ -39,7 +39,7 @@ int Rasterizer::CalculateFog(float distance, Camera* cam){
     if(!cam->distanceFogEnabled) return 256;
 
     float fogMaxDist = cam->maxViewDist;
-    float fogMinDist = cam->maxViewDist * 0.7f;
+    float fogMinDist = cam->maxViewDist * 0.5f;
     
     if(distance <= fogMinDist) return 256;
     if(distance >= fogMaxDist) return 0;
@@ -200,6 +200,9 @@ void Rasterizer::DrawWalls(ColumnGeometry* colBuffer, AssetMgr* assets, Palette*
         Texture* tex = assets->GetTexture(column.tileID);
 
         if(tex != nullptr){
+            if (column.distance > (cam->maxViewDist - 1.0f) && tex->mip != nullptr) {
+                tex = tex->mip;
+            }
             int texX = (float)(column.wallX * tex->width);
 
             float invDistance = 1.0f / column.distance;
@@ -300,10 +303,12 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
                         }
                         else{
                             if(y >= colBuffer[x].drawEnd){
+                                Texture* fTex = (rowBuffer[y].distance > (cam->maxViewDist - 1.0f) && floorTex->mip != nullptr) ? floorTex->mip : floorTex;
+                                int fSh = 16 - fTex->shift;
                                 int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
                                 int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
 
-                                uint16_t color = floorPx[(((floorY >> fShift) & floorTex->mask) << floorTex->shift) + ((floorX >> fShift) & floorTex->mask)];
+                                uint16_t color = fTex->pixels[(((floorY >> fSh) & fTex->mask) << fTex->shift) + ((floorX >> fSh) & fTex->mask)];
                                 
                                 int currFog = rowFog[y];
                                 int disFromWallBase = y - colBuffer[x].drawEnd;
@@ -326,10 +331,12 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
                                     if(y < colBuffer[x].drawStart) dst[pixIndex + y] = 0x0000;
                                 }
                                 else{
+                                    Texture* cTex = (rowBuffer[y].distance > (cam->maxViewDist - 1.0f) && ceilTex->mip != nullptr) ? ceilTex->mip : ceilTex;
+                                    int cSh = 16 - cTex->shift;
                                     int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
                                     int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
 
-                                    uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
+                                    uint16_t color = cTex->pixels[(((floorY >> cSh) & cTex->mask) << cTex->shift) + ((floorX >> cSh) & cTex->mask)];
 
                                     int currFog = rowFog[y];
                                     int disFromWallTop = (colBuffer[x].drawStart - 1) - y;

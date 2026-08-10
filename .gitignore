@@ -52,3 +52,5 @@ vgcore.*
 # ---------------------------------
 .env
 game
+dungeon_game
+Makefile.dungeon

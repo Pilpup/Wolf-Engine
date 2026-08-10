@@ -18,10 +18,10 @@ bool Game::Initialize(int width, int height, const char* title){
     scrWidth  = width;
 
     if(!engine.Initialize(scrWidth, scrHeight, title)) return false;
-    engine.TargetFPS(1000);
+    engine.TargetFPS(100);
 
     rasterizer.Initialize(width, height);
-    camera.SetViewDistance(256.0f, false);
+    camera.SetViewDistance(10.0f, true);
     
     raycaster = new Raycaster(width, height);
 
@@ -77,7 +77,7 @@ void Game::Render(){
         world->Getfloor()[0],
         world->GetCeil()[0],
         &camera,
-        true
+        false
     );
 
     rasterizer.DrawWalls(raycaster->GetColBuffer(), &assets, &palette, &camera);

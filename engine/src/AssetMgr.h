@@ -18,7 +18,13 @@ struct Texture{
     int shift;
     int mask;
 
-    ~Texture() {if(pixels) delete[] pixels;}
+    Texture* mip;
+
+    Texture() : pixels(nullptr), mip(nullptr) {}
+    ~Texture() {
+        if(pixels) delete[] pixels;
+        if(mip) delete mip;
+    }
 };
 
 class AssetMgr{

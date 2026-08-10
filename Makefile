@@ -1,7 +1,7 @@
 -include .env
 
 PLATFORM ?= pc
-TARGET = game
+TARGET = bin/game
 
 SRC = engine/src/Camera.cpp \
       engine/src/Engine.cpp \
@@ -35,6 +35,7 @@ OBJ = $(SRC:.cpp=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
+	mkdir -p $(dir $@)
 	$(CXX) $(OBJ) $(LDFLAGS) -o $@
 
 %.o: %.cpp
@@ -51,7 +52,7 @@ ifndef DEVICE_IP
 	$(error DEVICE_IP is not set. Please copy .env.example to .env and set your device IP)
 endif
 	ssh root@$(DEVICE_IP) "mkdir -p /userdata/roms/ports/wolf_game/assets"
-	scp game root@$(DEVICE_IP):/userdata/roms/ports/wolf_game/game
+	scp $(TARGET) root@$(DEVICE_IP):/userdata/roms/ports/wolf_game/game
 	scp -r assets/* root@$(DEVICE_IP):/userdata/roms/ports/wolf_game/assets/
 
 .PHONY: all clean run deploy
