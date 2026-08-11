@@ -36,8 +36,7 @@ To make the engine run extremely fast on the CPU, it uses these tricks:
 
 ## Building for PC
 ```bash
-make
-./bin/game 
+make clean run
 ```
 
 ## Building & Deploying to RG35XX (or similar handhelds)
