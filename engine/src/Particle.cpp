@@ -100,3 +100,4 @@ void Particle::Render(Rasterizer* raster, Camera* cam, Raycaster* ray){
         raster->DrawPixel(screenX + 1, screenY + 1, color[i]);
     }
 }
+

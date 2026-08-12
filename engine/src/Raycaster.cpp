@@ -3,7 +3,6 @@
 #include "Mathutil.h"
 #include "Sprite.h"
 #include "Map.h"
-#include <complex>
 #include <cstdint>
 
 Raycaster::Raycaster(int w, int h) : scrWidth(w), scrHeight(h) {

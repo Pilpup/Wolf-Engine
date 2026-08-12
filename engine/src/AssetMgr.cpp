@@ -102,23 +102,6 @@ Texture* AssetMgr::LoadTexture(unsigned char tileID, const char* filepath){
     tex->pixels = new uint16_t[tex->width * tex->height];
     std::memcpy(tex->pixels, converted->pixels, numBytes);
 
-    tex->mip = new Texture();
-    tex->mip->width = 16;
-    tex->mip->height = 16;
-    tex->mip->shift = __builtin_ctz(16);
-    tex->mip->mask = 15;
-    tex->mip->pixels = new uint16_t[16 * 16];
-    
-    float scaleX = (float)tex->width / 16.0f;
-    float scaleY = (float)tex->height / 16.0f;
-    for(int mx = 0; mx < 16; mx++){
-        for(int my = 0; my < 16; my++){
-            int origX = (int)(mx * scaleX);
-            int origY = (int)(my * scaleY);
-            tex->mip->pixels[mx * 16 + my] = tex->pixels[origX * tex->height + origY];
-        }
-    }
-
     SDL_FreeSurface(converted);
     textures[tileID] = tex;
     return tex;

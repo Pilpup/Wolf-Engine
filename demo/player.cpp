@@ -324,10 +324,6 @@ void Player::UpdateAttack(Entity* manager, Map* map, float dt, bool isMoving, Pl
         } break;
 
         case AttackID::BUBBLE : {
-            float progress = 1.0f;
-            if(framesPerAnim > 1){
-                progress = (float)currAnimFram / (framesPerAnim - 1);
-            }
             sprite.z = attackBaseZ;
 
             if(isHitFrame){

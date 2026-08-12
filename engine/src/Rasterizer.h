@@ -41,7 +41,7 @@ private:
     
     void DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster);
     
-    void DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer);
+    void DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer);
 
     void DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, Vector2 sunDir);
 

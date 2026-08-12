@@ -8,7 +8,6 @@
 #include "Font.h"
 #include <algorithm>
 #include <cstring>
-#include <iostream>
 #include <cstdint>
 #include <cmath>
 
@@ -200,9 +199,6 @@ void Rasterizer::DrawWalls(ColumnGeometry* colBuffer, AssetMgr* assets, Palette*
         Texture* tex = assets->GetTexture(column.tileID);
 
         if(tex != nullptr){
-            if (column.distance > (cam->maxViewDist - 1.0f) && tex->mip != nullptr) {
-                tex = tex->mip;
-            }
             int texX = (float)(column.wallX * tex->width);
 
             float invDistance = 1.0f / column.distance;
@@ -250,7 +246,6 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
         rowFog[y] = CalculateFog(rowBuffer[y].distance, cam);
     }
 
-    int skyTexX[width];
     int skyTexOffset[width];
     int skyTexY_array[height];
     int skyHeight = 0;
@@ -267,19 +262,15 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
             skyTexY_array[y] = texY;
         }
 
-        for(int x = 0; x < width; x++){
-            float cameraX = 2.0f * x / (float)width - 1.0f;
-            
-            float rayDirX = cam->dir.x + cam->plane.x * cameraX;
-            float rayDirY = cam->dir.y + cam->plane.y * cameraX;
-            
-            float angle = std::atan2(rayDirY, rayDirX);
-            if(angle < 0.0f) angle += 6.2831853f;
+        float centerSkyX = (cam->absAngle / 4096.0f) * skyWidth;
+        float skyVisibleWidth = skyWidth * 0.185f;
+        float skyStep = skyVisibleWidth / (float)width;
+        float startSkyX = centerSkyX - (skyVisibleWidth * 0.5f);
 
-            int texX = (int)((angle / 6.2831853f) * skyWidth);
+        for(int x = 0; x < width; x++){
+            int texX = (int)(startSkyX + x * skyStep) % skyWidth;
             texX = (skyWidth - texX) % skyWidth;
             if(texX < 0) texX += skyWidth;
-            skyTexX[x] = texX;
             skyTexOffset[x] = texX * skyHeight;
         }
     }
@@ -303,12 +294,10 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
                         }
                         else{
                             if(y >= colBuffer[x].drawEnd){
-                                Texture* fTex = (rowBuffer[y].distance > (cam->maxViewDist - 1.0f) && floorTex->mip != nullptr) ? floorTex->mip : floorTex;
-                                int fSh = 16 - fTex->shift;
                                 int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
                                 int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
 
-                                uint16_t color = fTex->pixels[(((floorY >> fSh) & fTex->mask) << fTex->shift) + ((floorX >> fSh) & fTex->mask)];
+                                uint16_t color = floorPx[(((floorY >> fShift) & floorTex->mask) << floorTex->shift) + ((floorX >> fShift) & floorTex->mask)];
                                 
                                 int currFog = rowFog[y];
                                 int disFromWallBase = y - colBuffer[x].drawEnd;
@@ -331,12 +320,10 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
                                     if(y < colBuffer[x].drawStart) dst[pixIndex + y] = 0x0000;
                                 }
                                 else{
-                                    Texture* cTex = (rowBuffer[y].distance > (cam->maxViewDist - 1.0f) && ceilTex->mip != nullptr) ? ceilTex->mip : ceilTex;
-                                    int cSh = 16 - cTex->shift;
                                     int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
                                     int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
 
-                                    uint16_t color = cTex->pixels[(((floorY >> cSh) & cTex->mask) << cTex->shift) + ((floorX >> cSh) & cTex->mask)];
+                                    uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
 
                                     int currFog = rowFog[y];
                                     int disFromWallTop = (colBuffer[x].drawStart - 1) - y;
@@ -426,7 +413,7 @@ void Rasterizer::DrawVertSprite(int x, int startY, int endY, SpriteColumn* colum
     }
 }
 
-void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int fog, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer){
+void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer){
     int spriteHeight = endY - startY; 
     if(spriteHeight <= 0) return;
 
@@ -495,8 +482,6 @@ void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, V
     int32_t texX_step = (frame->width << 16) / spriteWidth;
     int32_t texX_FP = 0; 
 
-    int fog = CalculateFog(proj.distance, cam);
-
     for(int x = drawStartX; x < drawEndX; x++){
         int texX = texX_FP >> 16;
         texX_FP += texX_step;
@@ -510,7 +495,7 @@ void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, V
         SpriteColumn* col = &frame->columns[texX];
         if(col->numRuns == 0) continue;
 
-        DrawVertShadow(x, proj.drawStartY, proj.drawEndY, col, frame->height, fog, proj.drawEndY, shearX, scaleY, ray->GetColBuffer());
+        DrawVertShadow(x, proj.drawStartY, proj.drawEndY, col, frame->height, proj.drawEndY, shearX, scaleY, ray->GetColBuffer());
     }
 }
 

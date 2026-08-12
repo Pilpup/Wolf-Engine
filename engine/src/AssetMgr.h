@@ -18,12 +18,9 @@ struct Texture{
     int shift;
     int mask;
 
-    Texture* mip;
-
-    Texture() : pixels(nullptr), mip(nullptr) {}
+    Texture() : pixels(nullptr) {}
     ~Texture() {
         if(pixels) delete[] pixels;
-        if(mip) delete mip;
     }
 };
 

@@ -11,13 +11,13 @@ SRC = engine/src/Camera.cpp \
       engine/src/Raycaster.cpp \
       engine/src/Palette.cpp \
       engine/src/AssetMgr.cpp \
-	  engine/src/Particle.cpp \
+      engine/src/Particle.cpp \
       demo/main.cpp \
-	  demo/player.cpp \
-	  demo/enemy.cpp \
-	  demo/entity_mgr.cpp \
-	  demo/world.cpp \
-	  demo/game.cpp \
+      demo/player.cpp \
+      demo/enemy.cpp \
+      demo/entity_mgr.cpp \
+      demo/world.cpp \
+      demo/game.cpp
 
 ifeq ($(PLATFORM), rg35xx)
     # RG35XX Plus Setup

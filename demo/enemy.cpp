@@ -2,12 +2,7 @@
 #include "entity_mgr.h"
 #include "player.h"
 #include <cmath>
-#include <exception>
-#include <filesystem>
-#include <utility>
-#include <iostream>
 #include <cstdlib>
-#include <algorithm>
 
 Enemy::Enemy(AssetMgr* assets, EnemyType type, float startX, float startY){
     sprite.x = startX;
