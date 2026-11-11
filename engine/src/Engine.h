@@ -20,6 +20,8 @@ private:
     int scrWidth;
     int frameCount = 0;
     int curFPS     = 0;
+    uint64_t totalFrames = 0;
+    double runTime = 0.0;
     float deltaTime;
     float targetFrameTime = 0.0f;
     float fpsTimer = 0.0f;
@@ -39,6 +41,9 @@ public:
     void TargetFPS(int fps) {targetFrameTime = (fps > 0) ? (1.0f/fps) : 0;}
 
     int GetFPS() const {return curFPS;}
+    uint64_t GetTotalFrames() const {return totalFrames;}
+    double GetRunTime() const {return runTime;}
+    void WriteStats(const char* path);
     bool IsRunning() {return isRunning;}
     void Stop() {isRunning = false;}
     float GetDeltaTime() {return deltaTime;}

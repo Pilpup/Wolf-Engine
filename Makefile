@@ -47,6 +47,17 @@ clean:
 run: $(TARGET)
 	OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=4 OMP_STACKSIZE=128k perf stat -d -o benchmark.txt ./$(TARGET)
 
+# Usage: make bench NAME=phase2
+# Runs a 60s idle benchmark under perf stat, saves runs/NAME.perf + runs/NAME.stats,
+# prints instructions/frame computed from both files.
+NAME ?= baseline
+
+bench: $(TARGET)
+	mkdir -p runs
+	OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=4 OMP_STACKSIZE=128k perf stat -d -o runs/$(NAME).perf -- ./bin/game --bench 60
+	@-mv stats.txt runs/$(NAME).stats
+	@awk 'NR==FNR{if($$0 ~ /^frames=/){split($$0,a,"="); frames=a[2]} if($$0 ~ /^avgfps=/){split($$0,b,"="); fps=b[2]} next} /instructions:u/{gsub(/,/,""); instr=$$1} END{if(frames>0 && instr>0) printf "instructions/frame = %.2f M   (avg fps %.1f)\n", instr/frames/1000000, fps; else print "WARNING: missing stats or perf data"}' runs/$(NAME).stats runs/$(NAME).perf
+
 deploy: $(TARGET)
 ifndef DEVICE_IP
 	$(error DEVICE_IP is not set. Please copy .env.example to .env and set your device IP)

@@ -18,10 +18,12 @@ bool Game::Initialize(int width, int height, const char* title){
     scrWidth  = width;
 
     if(!engine.Initialize(scrWidth, scrHeight, title)) return false;
-    engine.TargetFPS(100);
+    // bench mode: uncap the frame limiter so the CPU renders flat-out instead of
+    // sleeping ~55% of the time — fps then measures real render throughput
+    engine.TargetFPS(benchSeconds > 0.0f ? 1000 : 100);
 
     rasterizer.Initialize(width, height);
-    camera.SetViewDistance(1000.0f, true);
+    camera.SetViewDistance(20.0f, true);
     
     raycaster = new Raycaster(width, height);
 
@@ -47,7 +49,13 @@ void Game::Run(){
         Update();
         Render();
         Present();
+
+        if(benchSeconds > 0.0f && engine.GetRunTime() >= benchSeconds){
+            engine.Stop();
+        }
     }
+
+    engine.WriteStats("stats.txt");
 }
 
 void Game::Update(){

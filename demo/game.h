@@ -23,6 +23,7 @@ private:
     int scrWidth, scrHeight, level;
 
     float sunAngle = 0.0f;
+    float benchSeconds = 0.0f;
 
 public:
     Game();
@@ -30,6 +31,8 @@ public:
 
     bool Initialize(int width, int height, const char* title);
     void Run();
+
+    void SetBenchDuration(float seconds) {benchSeconds = seconds;}
 
 private:
     void LoadGlobalAssets();

@@ -1,6 +1,7 @@
 #include "Engine.h"
 #include <SDL2/SDL.h>
 #include <iostream>
+#include <cstdio>
 
 Engine::Engine() : window(nullptr), renderer(nullptr), texture(nullptr), lastFrameTime(0),
                    scrWidth(0), deltaTime(0.0f), isRunning(false) {}
@@ -92,6 +93,8 @@ void Engine::Update(){
     lastFrameTime = currentFrameTime;
 
     frameCount++;
+    totalFrames++;
+    runTime += deltaTime;
     fpsTimer += deltaTime;
     if(fpsTimer >= 1.0f){
         curFPS = frameCount;
@@ -121,4 +124,20 @@ void Engine::Present(const uint16_t* pixels){
     SDL_UpdateTexture(texture, nullptr, pixels, scrWidth * sizeof(uint16_t));
     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
+}
+
+void Engine::WriteStats(const char* path){
+    double avg = (runTime > 0.0) ? (double)totalFrames / runTime : 0.0;
+
+    printf("frames=%llu\nseconds=%.3f\navgfps=%.2f\n",
+           (unsigned long long)totalFrames, runTime, avg);
+
+    FILE* f = fopen(path, "w");
+    if(!f){
+        std::cerr << "WARNING: could not write stats to " << path << "\n";
+        return;
+    }
+    fprintf(f, "frames=%llu\nseconds=%.3f\navgfps=%.2f\n",
+            (unsigned long long)totalFrames, runTime, avg);
+    fclose(f);
 }
