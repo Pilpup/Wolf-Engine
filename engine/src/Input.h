@@ -18,7 +18,6 @@ class Input{
 private:
     std::vector<unsigned char> previousKeyState;
     std::vector<unsigned char> prevGamepadState;
-    std::vector<unsigned char> virtualKeyState;
 
     _SDL_GameController* controller;
     const unsigned char* sdlKey;
@@ -30,8 +29,6 @@ public:
 
     void Init();
     void Update();
-
-    void SetVirtualKey(Keys key, bool down);
     
     bool isKeyDown(Keys key);
     bool isKeyPressed(Keys key);

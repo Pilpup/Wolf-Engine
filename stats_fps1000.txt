@@ -1,3 +1,0 @@
-frames=42667
-seconds=27.651
-avgfps=1543.05

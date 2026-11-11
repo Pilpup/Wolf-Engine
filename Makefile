@@ -45,7 +45,7 @@ $(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJ) $(DEPS) $(TARGET)
 
 run: $(TARGET)
 	OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=4 OMP_STACKSIZE=128k perf stat -d -o benchmark.txt ./$(TARGET)
