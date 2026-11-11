@@ -93,7 +93,7 @@ void Enemy::Update(Entity* manager, Player* player, Camera* cam, Map* map, float
     }
     
     float distanceSqr = 0.0f;
-    bool canSeePlayer = UpdateShit(player, cam, map, distanceSqr);
+    bool canSeePlayer = UpdateShit(player, map, distanceSqr);
 
     if(!canSeePlayer && currentState == EnemyState::WALK && hasLastKnown){
         UpdatePath(map);
@@ -119,9 +119,11 @@ void Enemy::Update(Entity* manager, Player* player, Camera* cam, Map* map, float
     UpdateVisuals(cam, dt);
 }
 
-bool Enemy::UpdateShit(Player* player, Camera* cam, Map* map, float& distanceSqr){
-    float diffX = player->GetSprite()->x - sprite.x;
-    float diffY = player->GetSprite()->y - sprite.y;
+bool Enemy::UpdateShit(Player* player, Map* map, float& distanceSqr){
+    float playerX = player->GetSprite()->x;
+    float playerY = player->GetSprite()->y;
+    float diffX = playerX - sprite.x;
+    float diffY = playerY - sprite.y;
     distanceSqr = diffX * diffX + diffY * diffY;
 
     float radToPlayer = (float)std::atan2((double)diffY, (double)diffX);
@@ -129,13 +131,13 @@ bool Enemy::UpdateShit(Player* player, Camera* cam, Map* map, float& distanceSqr
 
     bool canSeePlayer = false;
     if(distanceSqr <= aggroRangeSqr){
-        if(CheckFOV(radToPlayer) && CalcLineOfSight(cam->pos.x, cam->pos.y, map)){
+        if(CheckFOV(radToPlayer) && CalcLineOfSight(playerX, playerY, map)){
             canSeePlayer = true;
         }
     }
     if(canSeePlayer){
-        lastKnowX = cam->pos.x;
-        lastKnowY = cam->pos.y;
+        lastKnowX = playerX;
+        lastKnowY = playerY;
         hasLastKnown = true;
         roamCount = 0;
         path.clear();

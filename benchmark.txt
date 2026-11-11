@@ -1,22 +1,22 @@
-# started on Wed Aug 12 10:43:55 2026
+# started on Tue Nov 10 11:41:36 2026
 
 
  Performance counter stats for './bin/game':
 
                  0      context-switches:u               #      0.0 cs/sec  cs_per_second     
                  0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
-             8,021      page-faults:u                    #   1106.4 faults/sec  page_faults_per_second
-          7,249.32 msec task-clock:u                     #      0.5 CPUs  CPUs_utilized       
-      22,88,22,821      L1-dcache-load-misses:u          #      2.2 %  l1d_miss_rate            (42.79%)
-       2,00,92,239      branch-misses:u                  #      0.4 %  branch_miss_rate         (42.48%)
-    5,33,63,83,251      branches:u                       #    736.1 M/sec  branch_frequency     (56.81%)
-   15,50,02,25,315      cpu-cycles:u                     #      2.1 GHz  cycles_frequency       (57.57%)
-   40,16,38,26,226      instructions:u                   #      2.6 instructions  insn_per_cycle  (57.31%)
-      62,23,66,970      stalled-cycles-frontend:u        #     0.04 frontend_cycles_idle        (57.57%)
+            10,647      page-faults:u                    #    275.5 faults/sec  page_faults_per_second
+         38,653.06 msec task-clock:u                     #      nan CPUs  CPUs_utilized       
+     1,179,360,115      L1-dcache-load-misses:u          #      2.1 %  l1d_miss_rate            (42.93%)
+       100,282,501      branch-misses:u                  #      0.3 %  branch_miss_rate         (43.13%)
+    29,496,096,806      branches:u                       #    763.1 M/sec  branch_frequency     (42.98%)
+    80,409,499,627      cpu-cycles:u                     #      2.1 GHz  cycles_frequency       (42.62%)
+   219,818,028,825      instructions:u                   #      2.7 instructions  insn_per_cycle  (42.78%)
+     2,180,863,691      stalled-cycles-frontend:u        #     0.03 frontend_cycles_idle        (42.85%)
 
-      15.852994396 seconds time elapsed
+      85.150365036 seconds time elapsed
 
-       6.055026000 seconds user
-       0.889767000 seconds sys
+      32.854345000 seconds user
+       4.303725000 seconds sys
 
 

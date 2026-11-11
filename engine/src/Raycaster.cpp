@@ -76,7 +76,7 @@ void Raycaster::CalculateColumnGeometry(Camera* camera, Map* map, Vector2 sunDir
                 mapIndex += stepYIndex;
                 side = 1;
             }
-            
+
             tile = mapData[mapIndex];
             if(tile > 0) break;
 
@@ -158,7 +158,14 @@ void Raycaster::CalculateRowGeometry(Camera* camera){
     #pragma omp parallel for schedule(static)
     for(int y = 0; y < scrHeight; y++){
         int p = y - horizon;          //cam position from the centre of screen
-        if(p == 0) continue;
+        if(p == 0) {
+            rowBuffer[y].startFloorX = 0;
+            rowBuffer[y].startFloorY = 0;
+            rowBuffer[y].stepX = 0;
+            rowBuffer[y].stepY = 0;
+            rowBuffer[y].distance = camera->maxViewDist + 1.0f;
+            continue;
+        };
 
         float camHeight = (p > 0) ? ((0.5f * scrHeight) + camera->z) : ((0.5f * scrHeight) - camera->z);
         float rowDistance = camHeight / (float)std::abs(p);

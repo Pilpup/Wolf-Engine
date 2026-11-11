@@ -125,7 +125,7 @@ void Player::Update(Entity* manager, Camera* cam, Engine& engine, Particle* part
             nextState = PlayerState::ATTACKING;
             animSpd = 0.05;
             activeAtk = attackY;
-            attacks[static_cast<int>(attackY)].currCooldown = attacks[static_cast<int>(attackX)].maxCooldown;
+            attacks[static_cast<int>(attackY)].currCooldown = attacks[static_cast<int>(attackY)].maxCooldown;
         }
 
         else{

@@ -84,7 +84,6 @@ void Rasterizer::Clear(uint16_t color){
     std::fill_n(pixels, size, color);
 }
 
-
 void Rasterizer::TransposeTo(uint16_t* dest, int pitch){
     int destWidth = pitch / 2;
     const int BLOCK_SIZE = 32;
@@ -387,7 +386,7 @@ void Rasterizer::DrawVertSprite(int x, int startY, int endY, SpriteColumn* colum
 
     for(int i = 0; i < column->numRuns; i++){
         SpriteRun& run = column->runs[i];
-    
+
         int screenY = startY + ((run.start * invStep) >> 16);
         int runHeight = ((run.size * invStep) >> 16);
         int screenEndY = screenY + runHeight;

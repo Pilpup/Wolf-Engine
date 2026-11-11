@@ -76,7 +76,7 @@ private:
     void Animate(float dt);
     void ChangeState(EnemyState newState);
 
-    bool UpdateShit(Player* player, Camera* cam, Map* map, float& distanceSqr);
+    bool UpdateShit(Player* player, Map* map, float& distanceSqr);
     void UpdatePath(Map* map);
     void UpdateVisuals(Camera* cam, float dt);
 

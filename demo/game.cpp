@@ -21,7 +21,7 @@ bool Game::Initialize(int width, int height, const char* title){
     engine.TargetFPS(100);
 
     rasterizer.Initialize(width, height);
-    camera.SetViewDistance(10.0f, true);
+    camera.SetViewDistance(1000.0f, true);
     
     raycaster = new Raycaster(width, height);
 

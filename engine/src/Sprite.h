@@ -38,8 +38,8 @@ struct SpriteSheet{
     uint16_t* solidPixelData;
 
     ~SpriteSheet(){
-        if(solidPixelData) delete[] solidPixelData;
         if(frames) delete[] frames;   
+        if(solidPixelData) delete[] solidPixelData;
     }
 };
 
