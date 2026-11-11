@@ -11,6 +11,12 @@
 #include <cstdint>
 #include <cmath>
 
+#if defined(__SSE2__)
+#include <emmintrin.h>
+#elif defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
 const int aoThreshold = 16;
 const int minShadowBrightness = 128;
 const int shadowRange = 256 - minShadowBrightness;
@@ -87,19 +93,137 @@ void Rasterizer::Clear(uint16_t color){
 void Rasterizer::TransposeTo(uint16_t* dest, int pitch){
     int destWidth = pitch / 2;
     const int BLOCK_SIZE = 32;
+    const int xEnd = width & ~7;
+    const int yEnd = height & ~7;
 
     #pragma omp parallel for collapse(2) schedule(static)
-    for(int i = 0; i < width; i += BLOCK_SIZE){
-        for(int j = 0; j < height; j += BLOCK_SIZE){
-            int maxX = std::min(i + BLOCK_SIZE, width);
-            int maxY = std::min(j + BLOCK_SIZE, height);
+    for(int i = 0; i < xEnd; i += BLOCK_SIZE){
+        for(int j = 0; j < yEnd; j += BLOCK_SIZE){
+            int maxX = std::min(i + BLOCK_SIZE, xEnd);
+            int maxY = std::min(j + BLOCK_SIZE, yEnd);
 
+#if defined(__SSE2__)
+            for(int y = j; y < maxY; y += 8){
+            for(int x = i; x < maxX; x += 8){
+                const uint16_t* src = pixels + x * height + y;
+                __m128i r0 = _mm_loadu_si128((const __m128i*)(src));
+                __m128i r1 = _mm_loadu_si128((const __m128i*)(src + height));
+                __m128i r2 = _mm_loadu_si128((const __m128i*)(src + 2 * height));
+                __m128i r3 = _mm_loadu_si128((const __m128i*)(src + 3 * height));
+                __m128i r4 = _mm_loadu_si128((const __m128i*)(src + 4 * height));
+                __m128i r5 = _mm_loadu_si128((const __m128i*)(src + 5 * height));
+                __m128i r6 = _mm_loadu_si128((const __m128i*)(src + 6 * height));
+                __m128i r7 = _mm_loadu_si128((const __m128i*)(src + 7 * height));
+
+                __m128i a0 = _mm_unpacklo_epi16(r0, r1);
+                __m128i a1 = _mm_unpackhi_epi16(r0, r1);
+                __m128i a2 = _mm_unpacklo_epi16(r2, r3);
+                __m128i a3 = _mm_unpackhi_epi16(r2, r3);
+                __m128i a4 = _mm_unpacklo_epi16(r4, r5);
+                __m128i a5 = _mm_unpackhi_epi16(r4, r5);
+                __m128i a6 = _mm_unpacklo_epi16(r6, r7);
+                __m128i a7 = _mm_unpackhi_epi16(r6, r7);
+
+                __m128i b0 = _mm_unpacklo_epi32(a0, a2);
+                __m128i b1 = _mm_unpackhi_epi32(a0, a2);
+                __m128i b2 = _mm_unpacklo_epi32(a1, a3);
+                __m128i b3 = _mm_unpackhi_epi32(a1, a3);
+                __m128i b4 = _mm_unpacklo_epi32(a4, a6);
+                __m128i b5 = _mm_unpackhi_epi32(a4, a6);
+                __m128i b6 = _mm_unpacklo_epi32(a5, a7);
+                __m128i b7 = _mm_unpackhi_epi32(a5, a7);
+
+                __m128i c0 = _mm_unpacklo_epi64(b0, b4);
+                __m128i c1 = _mm_unpackhi_epi64(b0, b4);
+                __m128i c2 = _mm_unpacklo_epi64(b1, b5);
+                __m128i c3 = _mm_unpackhi_epi64(b1, b5);
+                __m128i c4 = _mm_unpacklo_epi64(b2, b6);
+                __m128i c5 = _mm_unpackhi_epi64(b2, b6);
+                __m128i c6 = _mm_unpacklo_epi64(b3, b7);
+                __m128i c7 = _mm_unpackhi_epi64(b3, b7);
+
+                uint16_t* d = dest + y * destWidth + x;
+                _mm_storeu_si128((__m128i*)(d), c0);
+                _mm_storeu_si128((__m128i*)(d + destWidth), c1);
+                _mm_storeu_si128((__m128i*)(d + 2 * destWidth), c2);
+                _mm_storeu_si128((__m128i*)(d + 3 * destWidth), c3);
+                _mm_storeu_si128((__m128i*)(d + 4 * destWidth), c4);
+                _mm_storeu_si128((__m128i*)(d + 5 * destWidth), c5);
+                _mm_storeu_si128((__m128i*)(d + 6 * destWidth), c6);
+                _mm_storeu_si128((__m128i*)(d + 7 * destWidth), c7);
+            }
+            }
+#elif defined(__ARM_NEON)
+            for(int y = j; y < maxY; y += 8){
+            for(int x = i; x < maxX; x += 8){
+                const uint16_t* src = pixels + x * height + y;
+                uint16x8_t r0 = vld1q_u16(src);
+                uint16x8_t r1 = vld1q_u16(src + height);
+                uint16x8_t r2 = vld1q_u16(src + 2 * height);
+                uint16x8_t r3 = vld1q_u16(src + 3 * height);
+                uint16x8_t r4 = vld1q_u16(src + 4 * height);
+                uint16x8_t r5 = vld1q_u16(src + 5 * height);
+                uint16x8_t r6 = vld1q_u16(src + 6 * height);
+                uint16x8_t r7 = vld1q_u16(src + 7 * height);
+
+                uint16x8_t a0 = vtrn1q_u16(r0, r1);
+                uint16x8_t a1 = vtrn2q_u16(r0, r1);
+                uint16x8_t a2 = vtrn1q_u16(r2, r3);
+                uint16x8_t a3 = vtrn2q_u16(r2, r3);
+                uint16x8_t a4 = vtrn1q_u16(r4, r5);
+                uint16x8_t a5 = vtrn2q_u16(r4, r5);
+                uint16x8_t a6 = vtrn1q_u16(r6, r7);
+                uint16x8_t a7 = vtrn2q_u16(r6, r7);
+
+                uint32x4_t b0 = vtrn1q_u32(vreinterpretq_u32_u16(a0), vreinterpretq_u32_u16(a2));
+                uint32x4_t b1 = vtrn2q_u32(vreinterpretq_u32_u16(a0), vreinterpretq_u32_u16(a2));
+                uint32x4_t b2 = vtrn1q_u32(vreinterpretq_u32_u16(a1), vreinterpretq_u32_u16(a3));
+                uint32x4_t b3 = vtrn2q_u32(vreinterpretq_u32_u16(a1), vreinterpretq_u32_u16(a3));
+                uint32x4_t b4 = vtrn1q_u32(vreinterpretq_u32_u16(a4), vreinterpretq_u32_u16(a6));
+                uint32x4_t b5 = vtrn2q_u32(vreinterpretq_u32_u16(a4), vreinterpretq_u32_u16(a6));
+                uint32x4_t b6 = vtrn1q_u32(vreinterpretq_u32_u16(a5), vreinterpretq_u32_u16(a7));
+                uint32x4_t b7 = vtrn2q_u32(vreinterpretq_u32_u16(a5), vreinterpretq_u32_u16(a7));
+
+                uint16x8_t c0 = vreinterpretq_u16_u64(vzip1q_u64(vreinterpretq_u64_u32(b0), vreinterpretq_u64_u32(b4)));
+                uint16x8_t c1 = vreinterpretq_u16_u64(vzip2q_u64(vreinterpretq_u64_u32(b0), vreinterpretq_u64_u32(b4)));
+                uint16x8_t c2 = vreinterpretq_u16_u64(vzip1q_u64(vreinterpretq_u64_u32(b1), vreinterpretq_u64_u32(b5)));
+                uint16x8_t c3 = vreinterpretq_u16_u64(vzip2q_u64(vreinterpretq_u64_u32(b1), vreinterpretq_u64_u32(b5)));
+                uint16x8_t c4 = vreinterpretq_u16_u64(vzip1q_u64(vreinterpretq_u64_u32(b2), vreinterpretq_u64_u32(b6)));
+                uint16x8_t c5 = vreinterpretq_u16_u64(vzip2q_u64(vreinterpretq_u64_u32(b2), vreinterpretq_u64_u32(b6)));
+                uint16x8_t c6 = vreinterpretq_u16_u64(vzip1q_u64(vreinterpretq_u64_u32(b3), vreinterpretq_u64_u32(b7)));
+                uint16x8_t c7 = vreinterpretq_u16_u64(vzip2q_u64(vreinterpretq_u64_u32(b3), vreinterpretq_u64_u32(b7)));
+
+                uint16_t* d = dest + y * destWidth + x;
+                vst1q_u16(d, c0);
+                vst1q_u16(d + destWidth, c1);
+                vst1q_u16(d + 2 * destWidth, c2);
+                vst1q_u16(d + 3 * destWidth, c3);
+                vst1q_u16(d + 4 * destWidth, c4);
+                vst1q_u16(d + 5 * destWidth, c5);
+                vst1q_u16(d + 6 * destWidth, c6);
+                vst1q_u16(d + 7 * destWidth, c7);
+            }
+            }
+#else
+            int maxY = std::min(j + BLOCK_SIZE, yEnd);
             for(int y = j; y < maxY; y++){
                 int destOffset = y * destWidth;
                 for(int x = i; x < maxX; x++){
                     dest[destOffset + x] = pixels[x * height + y];
                 }
             }
+#endif
+        }
+    }
+
+    for(int y = 0; y < height; y++){
+        for(int x = xEnd; x < width; x++){
+            dest[y * destWidth + x] = pixels[x * height + y];
+        }
+    }
+    for(int y = yEnd; y < height; y++){
+        for(int x = 0; x < xEnd; x++){
+            dest[y * destWidth + x] = pixels[x * height + y];
         }
     }
 }
