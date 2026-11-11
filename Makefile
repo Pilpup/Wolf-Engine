@@ -3,6 +3,8 @@
 PLATFORM ?= pc
 TARGET = bin/game
 
+all: $(TARGET)
+
 SRC = engine/src/Camera.cpp \
       engine/src/Engine.cpp \
       engine/src/Input.cpp \
