@@ -18,9 +18,7 @@ bool Game::Initialize(int width, int height, const char* title){
     scrWidth  = width;
 
     if(!engine.Initialize(scrWidth, scrHeight, title)) return false;
-    // bench mode: uncap the frame limiter so the CPU renders flat-out instead of
-    // sleeping ~55% of the time — fps then measures real render throughput
-    engine.TargetFPS(benchSeconds > 0.0f ? 1000 : 100);
+    engine.TargetFPS(1000);
 
     rasterizer.Initialize(width, height);
     camera.SetViewDistance(20.0f, true);

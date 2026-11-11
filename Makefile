@@ -22,15 +22,18 @@ SRC = engine/src/Camera.cpp \
 ifeq ($(PLATFORM), rg35xx)
     # RG35XX Plus Setup
     CXX = aarch64-linux-gnu-g++
-    CXXFLAGS = -std=c++17 -Wall -Wextra -O3 -ffast-math -flto -mcpu=cortex-a53 -mtune=cortex-a53 -fopenmp
+    CXXFLAGS = -std=c++17 -Wall -Wextra -O3 -ffast-math -flto -mcpu=cortex-a53 -mtune=cortex-a53 -fopenmp -MMD -MP
 else
     # PC Setup (Default)
     CXX = g++
-    CXXFLAGS = -std=c++17 -Wall -Wextra -O3 -ffast-math -flto -fopenmp
+    CXXFLAGS = -std=c++17 -Wall -Wextra -O3 -ffast-math -flto -fopenmp -MMD -MP
 endif
 
 LDFLAGS = -lSDL2 -fopenmp
 OBJ = $(SRC:.cpp=.o)
+DEPS = $(OBJ:.o=.d)
+
+-include $(DEPS)
 
 all: $(TARGET)
 

@@ -55,6 +55,7 @@ Input::~Input(){
 }
 
 void Input::Init(){
+    virtualKeyState.resize((int)Keys::SPACE + 1, 0);
     sdlKey = SDL_GetKeyboardState(&numKey);
 
     if(sdlKey != nullptr){
@@ -80,10 +81,20 @@ void Input::Update(){
 }
 
 bool Input::isKeyDown(Keys key){
+    int index = (int)key;
+    if(index >= 0 && index < (int)virtualKeyState.size() && virtualKeyState[index]) return true;
+
     SDL_Scancode keyCode = GetSDLScanCode(key);
     if(keyCode == SDL_SCANCODE_UNKNOWN || sdlKey == nullptr) return false;
 
     return sdlKey[keyCode];
+}
+
+void Input::SetVirtualKey(Keys key, bool down){
+    int index = (int)key;
+    if(index >= 0 && index < (int)virtualKeyState.size()){
+        virtualKeyState[index] = down ? 1 : 0;
+    }
 }
 
 bool Input::isKeyPressed(Keys key){

@@ -271,7 +271,7 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
 
     int rowFog[height];
     for(int y = 0; y < height; y++){
-        rowFog[y] = CalculateFog(rowBuffer[y].distance, cam);
+        rowFog[y] = (rowBuffer[y].distance >= cam->maxViewDist) ? 0 : CalculateFog(rowBuffer[y].distance, cam);
     }
 
     int skyTexOffset[width];
@@ -313,62 +313,65 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
 
             for(int x = startX; x < endX; x++){
                 int pixIndex = x * height;
+                ColumnGeometry& col = colBuffer[x];
+
+                int ceilEnd = std::min((int)col.drawStart, horizon);
+                int ceilAoStart = std::max(0, (int)col.drawStart - aoThreshold);
+                int floorStart = std::max((int)col.drawEnd, horizon + 1);
+                int floorFlatStart = std::min(std::max(floorStart, (int)col.drawEnd + aoThreshold), height);
+
                 for(int y = startY; y < endY; y++){
-                    if(y == horizon) continue;
-                   
-                    if(y >= horizon){
-                        if(rowBuffer[y].distance >= cam->maxViewDist){
-                            if(y >= colBuffer[x].drawEnd) dst[pixIndex + y] = 0x0000;
+                    if(y < ceilEnd){
+                        if(isSky){
+                            dst[pixIndex + y] = ceilPx[skyTexOffset[x] + skyTexY_array[y]];
+                        }
+                        else if(y >= ceilAoStart){
+                            int dis = ((int)col.drawStart - 1) - y;
+                            int fog = rowFog[y];
+                            if(fog != 0){
+                                int multiplier = minShadowBrightness + ((shadowRange * dis) >> 4);
+                                fog = (fog * multiplier) >> 8;
+                            }
+                            int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
+                            int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
+                            uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
+                            dst[pixIndex + y] = (fog == 0) ? 0x0000 : ShadePixel(color, fog);
                         }
                         else{
-                            if(y >= colBuffer[x].drawEnd){
+                            int fog = rowFog[y];
+                            if(fog == 0){
+                                dst[pixIndex + y] = 0x0000;
+                            }
+                            else{
                                 int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
                                 int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
-
-                                uint16_t color = floorPx[(((floorY >> fShift) & floorTex->mask) << floorTex->shift) + ((floorX >> fShift) & floorTex->mask)];
-                                
-                                int currFog = rowFog[y];
-                                int disFromWallBase = y - colBuffer[x].drawEnd;
-                                if(disFromWallBase < aoThreshold){
-                                    int multiplier = minShadowBrightness + ((shadowRange * disFromWallBase) >> 4);
-                                    currFog = (currFog * multiplier) >> 8;
-                                }
-
-                                dst[pixIndex + y] = ShadePixel(color, currFog);
+                                uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
+                                dst[pixIndex + y] = (fog >= 256) ? color : ShadePixel(color, fog);
                             }
                         }
                     }
-                    else{ //draw sky/ ceiling
-                        if(y < colBuffer[x].drawStart){
-                            if(isSky){
-                                dst[pixIndex + y] = ceilPx[skyTexOffset[x] + skyTexY_array[y]];
+                    else if(y >= floorStart){
+                        int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
+                        int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
+                        uint16_t color = floorPx[(((floorY >> fShift) & floorTex->mask) << floorTex->shift) + ((floorX >> fShift) & floorTex->mask)];
+                        int fog = rowFog[y];
+
+                        if(y >= floorFlatStart){
+                            dst[pixIndex + y] = (fog == 0) ? 0x0000 : ((fog >= 256) ? color : ShadePixel(color, fog));
+                        }
+                        else{
+                            if(fog != 0){
+                                int dis = y - (int)col.drawEnd;
+                                int multiplier = minShadowBrightness + ((shadowRange * dis) >> 4);
+                                fog = (fog * multiplier) >> 8;
                             }
-                            else{
-                                if(rowBuffer[y].distance >= cam->maxViewDist){
-                                    if(y < colBuffer[x].drawStart) dst[pixIndex + y] = 0x0000;
-                                }
-                                else{
-                                    int32_t floorX = rowBuffer[y].startFloorX + x * rowBuffer[y].stepX;
-                                    int32_t floorY = rowBuffer[y].startFloorY + x * rowBuffer[y].stepY;
-
-                                    uint16_t color = ceilPx[(((floorY >> cShift) & ceilTex->mask) << ceilTex->shift) + ((floorX >> cShift) & ceilTex->mask)];
-
-                                    int currFog = rowFog[y];
-                                    int disFromWallTop = (colBuffer[x].drawStart - 1) - y;
-                                    if(disFromWallTop < aoThreshold){
-                                        int multiplier = minShadowBrightness + ((shadowRange * disFromWallTop) >> 4);
-                                        currFog = (currFog * multiplier) >> 8;
-                                    }
-
-                                    dst[pixIndex + y] = ShadePixel(color, currFog);
-                                }
-                            }
+                            dst[pixIndex + y] = (fog == 0) ? 0x0000 : ShadePixel(color, fog);
                         }
                     }
                 }
             }
         }
-    }       
+    }
 }
 
 void Rasterizer::DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster){
