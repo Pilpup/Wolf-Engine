@@ -42,7 +42,7 @@ public:
     Raycaster(int w, int h);
     ~Raycaster();
 
-    void CalculateColumnGeometry(Camera* camera, Map* map, Vector2 sunDir);
+    void RaycastColumn(Camera* camera, Map* map, Vector2 sunDir, int x, ColumnGeometry* out);
 
     void CalculateRowGeometry(Camera* camera);
 

@@ -74,7 +74,7 @@ void Game::Update(){
 void Game::Render(){
     Vector2 sunDir(fcos((int)sunAngle), fsin((int)sunAngle));
 
-    raycaster->CalculateColumnGeometry(&camera, world->GetMap(), sunDir);
+    rasterizer.DrawWalls(raycaster, &camera, world->GetMap(), sunDir, &assets, &palette);
     raycaster->CalculateRowGeometry(&camera);
 
     rasterizer.DrawTexturedHorizon(
@@ -86,10 +86,17 @@ void Game::Render(){
         false
     );
 
-    rasterizer.DrawWalls(raycaster->GetColBuffer(), &assets, &palette, &camera);
-
     entity->QueueSprites(&rasterizer);
     rasterizer.QueueSprite(player->GetSprite());
+
+    if(stressMode){
+        stressSprite = *player->GetSprite();
+        stressSprite.x = camera.pos.x + camera.dir.x * 1.5f;
+        stressSprite.y = camera.pos.y + camera.dir.y * 1.5f;
+        stressSprite.z = 0.0f;
+        rasterizer.QueueSprite(&stressSprite);
+    }
+
     rasterizer.DrawSprites(&camera, raycaster, sunDir, true);
 
     particles.Render(&rasterizer, &camera, raycaster);

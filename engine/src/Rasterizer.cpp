@@ -206,13 +206,17 @@ void Rasterizer::DrawTexturedVLine(int x, int startY, int endY, float texPos, fl
     }
 }
 
-void Rasterizer::DrawWalls(ColumnGeometry* colBuffer, AssetMgr* assets, Palette* palette, Camera* cam){
+void Rasterizer::DrawWalls(Raycaster* raycaster, Camera* cam, Map* map, Vector2 sunDir, AssetMgr* assets, Palette* palette){
+    ColumnGeometry* colBuffer = raycaster->GetColBuffer();
+
     float invHeight = 1.0f / (float)height;
 
     #pragma omp parallel for schedule(guided)
     for(int x = 0; x < width; x++){
 
         ColumnGeometry& column = colBuffer[x];
+        raycaster->RaycastColumn(cam, map, sunDir, x, &column);
+
         if(column.distance >= cam->maxViewDist){
             DrawVLine(x, column.drawStart, column.drawEnd, 0x0000);
             continue;
@@ -374,7 +378,7 @@ void Rasterizer::DrawTexturedHorizon(ColumnGeometry* colBuffer, RowGeometry* row
     }
 }
 
-void Rasterizer::DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster){
+void Rasterizer::DrawSpriteWithShadow(Sprite& sprite, Camera* cam, Raycaster* raycaster, Vector2 sunDir, bool drawShadow){
     SpriteFrame* frame = &sprite.sheet->frames[sprite.currentFrame];
 
     SpriteProjection proj;
@@ -383,28 +387,44 @@ void Rasterizer::DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster){
     if(proj.distance <= 0.1f) return;
     if(proj.distance >= cam->maxViewDist) return;
 
-    int drawStartX = std::max(0, proj.drawStartX);
-    int drawEndX   = std::min(width, proj.drawEndX);
+    SpriteProjection shadowProj;
+    if(drawShadow){
+        raycaster->ProjectSprite(sprite.x, sprite.y, 0.0f, cam, &shadowProj, frame->width, frame->height);
+    }
 
     int spriteWidth = proj.drawEndX - proj.drawStartX;
     if(spriteWidth <= 0) return;
 
     int32_t texX_step = (frame->width << 16) / spriteWidth;
-    int32_t texX_FP   = (drawStartX - proj.drawStartX) * texX_step;
-        
+    int32_t texX_FP   = 0;
+
     int fog = CalculateFog(proj.distance, cam);
-    
-    for(int x = drawStartX; x < drawEndX; x++){
+
+    Vector2 shadowDir(-sunDir.x, -sunDir.y);
+    float localY = shadowDir.Dot(cam->dir);
+    float localX = shadowDir.Dot(cam->plane);
+    float scaleY = localY * 0.4f;
+    float shearX = localX * 1.5f;
+
+    ColumnGeometry* colBuffer = raycaster->GetColBuffer();
+
+    for(int x = proj.drawStartX; x < proj.drawEndX; x++){
         int texX = texX_FP >> 16;
         texX_FP += texX_step;
 
-        if(proj.distance >= raycaster->GetColBuffer()[x].distance) continue;       
+        bool onScreen = (x >= 0 && x < width);
+        if(onScreen && proj.distance >= colBuffer[x].distance) continue;
 
         SpriteColumn* col = &frame->columns[texX];
-    
         if(col->numRuns == 0) continue;
 
-        DrawVertSprite(x, proj.drawStartY, proj.drawEndY, col, frame->height, fog);
+        if(drawShadow && onScreen){
+            DrawVertShadow(x, shadowProj.drawStartY, shadowProj.drawEndY, col, frame->height, shadowProj.drawEndY, shearX, scaleY, colBuffer);
+        }
+
+        if(onScreen){
+            DrawVertSprite(x, proj.drawStartY, proj.drawEndY, col, frame->height, fog);
+        }
     }
 }
 
@@ -466,7 +486,16 @@ void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, 
         int32_t shadowX_FP = (x << 16) + h_start * fixedShearX;
         int32_t shadowY_FP = (drawEndY << 16) - h_start * fixedScaleY;
 
-        for(int y = screenY; y < screenEndY; y++){
+        int drawStartY = (screenY < 0) ? 0 : screenY;
+        int clampedEndY = (screenEndY > height) ? height : screenEndY;
+
+        if(drawStartY > screenY){
+            int skipped = drawStartY - screenY;
+            shadowX_FP -= skipped * fixedShearX;
+            shadowY_FP += skipped * fixedScaleY;
+        }
+
+        for(int y = drawStartY; y < clampedEndY; y++){
             int cx = shadowX_FP >> 16;
             int cy = shadowY_FP >> 16;
 
@@ -486,47 +515,6 @@ void Rasterizer::DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, 
             shadowX_FP -= fixedShearX;
             shadowY_FP += fixedScaleY;
         }
-    }
-}
-
-void Rasterizer::DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, Vector2 sunDir){
-    SpriteFrame* frame = &sprite.sheet->frames[sprite.currentFrame];
-
-    SpriteProjection proj;
-    ray->ProjectSprite(sprite.x, sprite.y, 0.0f, cam, &proj, frame->width, frame->height);
-
-    if(proj.distance < 0.1f) return;
-
-    int spriteWidth = proj.drawEndX - proj.drawStartX;
-    if(spriteWidth <= 0) return;
-
-    Vector2 shadowDir(-sunDir.x, -sunDir.y);
-    float localY = shadowDir.Dot(cam->dir);
-    float localX = shadowDir.Dot(cam->plane);
-
-    float scaleY = localY * 0.4f;
-    float shearX = localX * 1.5f;
-
-    int drawStartX = proj.drawStartX;
-    int drawEndX = proj.drawEndX;
-
-    int32_t texX_step = (frame->width << 16) / spriteWidth;
-    int32_t texX_FP = 0; 
-
-    for(int x = drawStartX; x < drawEndX; x++){
-        int texX = texX_FP >> 16;
-        texX_FP += texX_step;
-
-        if(texX < 0 || texX >= frame->width) continue;
-
-        if(x >= 0 && x < width){
-            if(proj.distance >= ray->GetColBuffer()[x].distance) continue;
-        }
-
-        SpriteColumn* col = &frame->columns[texX];
-        if(col->numRuns == 0) continue;
-
-        DrawVertShadow(x, proj.drawStartY, proj.drawEndY, col, frame->height, proj.drawEndY, shearX, scaleY, ray->GetColBuffer());
     }
 }
 
@@ -598,10 +586,7 @@ void Rasterizer::DrawSprites(Camera* cam, Raycaster* raycaster, Vector2 sunDir, 
     }
 
     for(int i = 0; i < visibleSprites; i++){
-        if(drawShadow){
-            DrawShadowSprite(*(sortedSprites[i].sprite), cam, raycaster, sunDir);
-        }
-        DrawSprite(*(sortedSprites[i].sprite), cam, raycaster);
+        DrawSpriteWithShadow(*(sortedSprites[i].sprite), cam, raycaster, sunDir, drawShadow);
     } 
     renderQueue.clear();
 }

@@ -17,6 +17,7 @@ class Raycaster;
 class AssetMgr;
 class Palette;
 class Camera;
+class Map;
 
 class Rasterizer{
 private:
@@ -39,11 +40,9 @@ private:
     
     void DrawVertSprite(int x, int startY, int endY, SpriteColumn* column, int frameHeight, int fog);
     
-    void DrawSprite(Sprite& sprite, Camera* cam, Raycaster* raycaster);
-    
     void DrawVertShadow(int x, int startY, int endY, SpriteColumn* col, int frameHeight, int drawEndY, float shearX, float scaleY, ColumnGeometry* colBuffer);
 
-    void DrawShadowSprite(Sprite& sprite, Camera* cam, Raycaster* ray, Vector2 sunDir);
+    void DrawSpriteWithShadow(Sprite& sprite, Camera* cam, Raycaster* raycaster, Vector2 sunDir, bool drawShadow);
 
 public:
     Rasterizer();
@@ -78,7 +77,7 @@ public:
 
     void DrawTexturedVLine(int x, int startY, int endY, float texPos, float texStep, uint16_t* slice, int fog);
     
-    void DrawWalls(ColumnGeometry* colBuffer, AssetMgr* assets, Palette* palette, Camera* cam);
+    void DrawWalls(Raycaster* raycaster, Camera* cam, Map* map, Vector2 sunDir, AssetMgr* assets, Palette* palette);
 
     void DrawHorizon(ColumnGeometry* colBuffer, uint16_t ceil, uint16_t floor);
 

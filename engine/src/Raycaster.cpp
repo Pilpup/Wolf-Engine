@@ -15,16 +15,15 @@ Raycaster::~Raycaster(){
     delete[] rowBuffer;
 }
 
-void Raycaster::CalculateColumnGeometry(Camera* camera, Map* map, Vector2 sunDir){
-    
+void Raycaster::RaycastColumn(Camera* camera, Map* map, Vector2 sunDir, int x, ColumnGeometry* out){
+
     const unsigned char* mapData = map->GetRawData();
-    
+
     int mapShift = map->GetMapShift();
 
     float invWidth = 2.0f / (float)scrWidth;
 
-    #pragma omp parallel for schedule(static)
-    for(int x = 0; x < scrWidth; x++){
+    {
         float cameraX = invWidth * x  - 1.0f;                       // normalize camera plane
 
         Vector2 rayDir = camera->dir + (camera->plane * cameraX);   // parametric equation of line P(t) = C + (V * t)
@@ -135,13 +134,13 @@ void Raycaster::CalculateColumnGeometry(Camera* camera, Map* map, Vector2 sunDir
         
         int calculatedLight = 120 + (int)(lightIntensity * 136.0f);
         
-        colBuffer[x].distance  = wallDistance; 
-        colBuffer[x].drawStart = drawStart; 
-        colBuffer[x].drawEnd   = drawEnd; 
-        colBuffer[x].tileID    = tile; 
-        colBuffer[x].wallX     = wallX; 
-        colBuffer[x].side      = side;
-        colBuffer[x].lightLevel= calculatedLight;
+        out->distance  = wallDistance;
+        out->drawStart = drawStart;
+        out->drawEnd   = drawEnd;
+        out->tileID    = tile;
+        out->wallX     = wallX;
+        out->side      = side;
+        out->lightLevel= calculatedLight;
     }
 }
 
