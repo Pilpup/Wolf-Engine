@@ -25,6 +25,7 @@ private:
     float sunAngle = 0.0f;
     float benchSeconds = 0.0f;
     bool stressMode = false;
+    int shotFrame = 0;
     Sprite stressSprite = {nullptr, 0.0f, 0.0f, 0.0f, 0};
 
 public:
@@ -36,6 +37,7 @@ public:
 
     void SetBenchDuration(float seconds) {benchSeconds = seconds;}
     void SetStressMode(bool stress) {stressMode = stress;}
+    void SetShotFrame(int frame) {shotFrame = frame;}
 
 private:
     void LoadGlobalAssets();

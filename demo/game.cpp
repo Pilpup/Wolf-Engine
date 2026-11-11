@@ -1,4 +1,5 @@
 #include "game.h"
+#include <SDL2/SDL.h>
 #include "enemy.h"
 #include "entity_mgr.h"
 #include "player.h"
@@ -66,7 +67,8 @@ void Game::Update(){
     
     player->Update(entity, &camera, engine, &particles, world->GetMap(), dt);
 
-    entity->Update(player, &camera, world->GetMap(), dt);
+    if(!stressMode) entity->Update(player, &camera, world->GetMap(), dt);
+    else { camera.absAngle = 2048; camera.Update(); }
 
     particles.Update(dt);
 }
@@ -90,9 +92,12 @@ void Game::Render(){
     rasterizer.QueueSprite(player->GetSprite());
 
     if(stressMode){
-        stressSprite = *player->GetSprite();
-        stressSprite.x = camera.pos.x + camera.dir.x * 1.5f;
-        stressSprite.y = camera.pos.y + camera.dir.y * 1.5f;
+        Enemy* e = entity->GetEnemy(0);
+        if(e == nullptr) return;
+        stressSprite = *e->GetSprite();
+        stressSprite.currentFrame = e->GetSprite()->currentFrame;
+        stressSprite.x = camera.pos.x + camera.dir.x * 1.2f;
+        stressSprite.y = camera.pos.y + camera.dir.y * 1.2f;
         stressSprite.z = 0.0f;
         rasterizer.QueueSprite(&stressSprite);
     }
@@ -105,6 +110,16 @@ void Game::Render(){
 }
 
 void Game::Present(){
-    engine.Present(rasterizer.GetPixelBuffer());
+    const uint16_t* pixels = rasterizer.GetPixelBuffer();
+
+    if(shotFrame > 0 && engine.GetTotalFrames() == (uint64_t)shotFrame){
+        SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom((void*)pixels, scrWidth, scrHeight, 16, scrWidth * 2, SDL_PIXELFORMAT_RGB565);
+        if(surf){
+            SDL_SaveBMP(surf, "shot.bmp");
+            SDL_FreeSurface(surf);
+        }
+    }
+
+    engine.Present(pixels);
     engine.Wait();
 }
