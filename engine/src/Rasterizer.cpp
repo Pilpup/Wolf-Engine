@@ -160,17 +160,46 @@ void Rasterizer::DrawTexturedVLine(int x, int startY, int endY, float texPos, fl
 
     // stored rotated to avoide cache misses
     int pixIndex = x * height + startY;
-    for(int y = startY; y < endY; y++){
-        int currFog = fog;
-        int disFromTop = y - startY;
-        int disFromBot = (endY - 1) - y;
-        int dis = std::min(disFromTop, disFromBot);
 
-        if(dis < aoThreshold){
-            int multiplier = minShadowBrightness + ((shadowRange * dis) >> 4);
-            currFog = (currFog * multiplier) >> 8;
+    if(endY - startY <= aoThreshold * 2){
+        for(int y = startY; y < endY; y++){
+            int disFromTop = y - startY;
+            int disFromBot = (endY - 1) - y;
+            int dis = std::min(disFromTop, disFromBot);
+            int currFog = fog;
+            if(dis < aoThreshold){
+                int multiplier = minShadowBrightness + ((shadowRange * dis) >> 4);
+                currFog = (currFog * multiplier) >> 8;
+            }
+            dst[pixIndex] = ShadePixel(src[fixedPos >> 16], currFog);
+            fixedPos += fixedStep;
+            pixIndex++;
         }
+        return;
+    }
 
+    int aoTop = startY + aoThreshold;
+    int aoBot = endY - aoThreshold;
+
+    for(int y = startY; y < aoTop; y++){
+        int dis = y - startY;
+        int multiplier = minShadowBrightness + ((shadowRange * dis) >> 4);
+        int currFog = (fog * multiplier) >> 8;
+        dst[pixIndex] = ShadePixel(src[fixedPos >> 16], currFog);
+        fixedPos += fixedStep;
+        pixIndex++;
+    }
+
+    for(int y = aoTop; y < aoBot; y++){
+        dst[pixIndex] = ShadePixel(src[fixedPos >> 16], fog);
+        fixedPos += fixedStep;
+        pixIndex++;
+    }
+
+    for(int y = aoBot; y < endY; y++){
+        int dis = (endY - 1) - y;
+        int multiplier = minShadowBrightness + ((shadowRange * dis) >> 4);
+        int currFog = (fog * multiplier) >> 8;
         dst[pixIndex] = ShadePixel(src[fixedPos >> 16], currFog);
         fixedPos += fixedStep;
         pixIndex++;
